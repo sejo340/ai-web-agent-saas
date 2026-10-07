@@ -58,11 +58,11 @@ async def _discover_flash_models(
             f"{GEMINI_API_ROOT}/models",
             headers={"x-goog-api-key": api_key},
             params=params,
+            timeout=15.0,
         )
         if not response.is_success:
             logger.warning(
-                "Gemini model discovery failed with HTTP %s",
-                response.status_code,
+                "Gemini model discovery failed with HTTP %s", response.status_code
             )
             raise GeminiServiceError(
                 "The AI service could not load its available models."
@@ -87,6 +87,7 @@ async def _discover_flash_models(
     candidates.sort(key=lambda item: item[0], reverse=True)
     requested_model = os.getenv("GEMINI_MODEL", "").strip()
     available_names = {name for _, name in candidates}
+
     if requested_model and requested_model in available_names:
         ordered_models = [requested_model] + [
             name for _, name in candidates if name != requested_model
@@ -100,7 +101,6 @@ async def _discover_flash_models(
 
     _cached_models = ordered_models
     _model_cache_expires_at = time.monotonic() + MODEL_CACHE_SECONDS
-    logger.info("Discovered supported Gemini Flash models from the live catalog.")
     return ordered_models.copy()
 
 
@@ -116,20 +116,27 @@ async def generate_gemini_reply(
 ) -> str:
     global _cached_models, _model_cache_expires_at
 
-    # SECURE: Reads the key from Replit Secrets / Environment Variables ONLY
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise GeminiServiceError(
-            "AI chat is not configured yet. Add GEMINI_API_KEY to Replit Secrets."
+            "AI chat is not configured. Please add GEMINI_API_KEY to environment variables."
         )
 
-    timeout = httpx.Timeout(35.0, connect=10.0)
+    # Increased timeout to 60 seconds to prevent ReadTimeout on slow networks
+    timeout = httpx.Timeout(60.0, connect=15.0)
+
     async with httpx.AsyncClient(timeout=timeout) as client:
-        models = await _discover_flash_models(client, api_key)
+        try:
+            models = await _discover_flash_models(client, api_key)
+        except Exception as e:
+            logger.error(f"Failed to discover models: {e}")
+            raise GeminiServiceError(
+                "Failed to connect to AI service. Please verify your API key."
+            )
+
         max_models_to_try = min(len(models), 3)
         model_index = 0
         retries_for_model = 0
-        refreshed_catalog = False
 
         while model_index < max_models_to_try:
             model = models[model_index]
@@ -142,16 +149,34 @@ async def generate_gemini_reply(
                         {"role": role, "parts": [{"text": msg.get("text", "")}]}
                     )
 
-            final_prompt = f"{prompt}\n\nIMPORTANT INSTRUCTION: You must respond entirely in {language}. Do not use any other language."
+            final_prompt = f"{prompt}\n\nIMPORTANT: Respond entirely in {language}."
             contents.append({"role": "user", "parts": [{"text": final_prompt}]})
 
             payload = {"contents": contents}
 
-            response = await client.post(
-                f"{GEMINI_API_ROOT}/models/{model}:generateContent",
-                headers={"x-goog-api-key": api_key},
-                json=payload,
-            )
+            try:
+                response = await client.post(
+                    f"{GEMINI_API_ROOT}/models/{model}:generateContent",
+                    headers={"x-goog-api-key": api_key},
+                    json=payload,
+                )
+            except httpx.ReadTimeout:
+                logger.warning("Gemini API read timeout. Trying next model.")
+                if model_index + 1 < max_models_to_try:
+                    model_index += 1
+                    continue
+                raise GeminiServiceError(
+                    "The AI service is taking too long to respond. Please try again in a moment."
+                )
+            except httpx.ConnectTimeout:
+                raise GeminiServiceError(
+                    "Cannot connect to the AI service. Please check your API key."
+                )
+            except Exception as e:
+                logger.error(f"Unexpected httpx error: {e}")
+                raise GeminiServiceError(
+                    "A network error occurred while contacting the AI service."
+                )
 
             try:
                 response_data = response.json()
@@ -159,55 +184,30 @@ async def generate_gemini_reply(
                 response_data = {}
 
             if not response.is_success:
-                if not refreshed_catalog and _model_was_removed(
-                    response.status_code,
-                    response_data,
-                ):
-                    _cached_models = []
-                    _model_cache_expires_at = 0.0
-                    refreshed_models = await _discover_flash_models(
-                        client,
-                        api_key,
-                        force_refresh=True,
-                    )
-                    refreshed_catalog = True
-                    if refreshed_models != models:
-                        models = refreshed_models
-                        max_models_to_try = min(len(models), 3)
-                        model_index = 0
-                        retries_for_model = 0
-                        continue
-
-                if response.status_code == 503 and retries_for_model == 0:
-                    retries_for_model += 1
-                    await asyncio.sleep(0.8)
-                    continue
-
-                if (
-                    response.status_code in {429, 503}
-                    and model_index + 1 < max_models_to_try
-                ):
-                    logger.info(
-                        "Gemini model is temporarily unavailable; trying another supported Flash model."
-                    )
-                    model_index += 1
-                    retries_for_model = 0
-                    continue
-
-                logger.warning(
-                    "Gemini content request failed with HTTP %s",
-                    response.status_code,
-                )
-                if response.status_code == 503:
+                if response.status_code in {400, 401}:
                     raise GeminiServiceError(
-                        "Gemini is temporarily busy. Please try again shortly."
+                        "Invalid or expired AI API key. Please check your Render environment variables."
                     )
                 if response.status_code == 429:
                     raise GeminiServiceError(
                         "The AI request limit has been reached. Please try again later."
                     )
+                if response.status_code == 503:
+                    if retries_for_model == 0:
+                        retries_for_model += 1
+                        await asyncio.sleep(1.0)
+                        continue
+                    raise GeminiServiceError(
+                        "Gemini is temporarily busy. Please try again shortly."
+                    )
+
+                if model_index + 1 < max_models_to_try:
+                    model_index += 1
+                    retries_for_model = 0
+                    continue
+
                 raise GeminiServiceError(
-                    "The AI service could not complete this request. Please try again."
+                    "The AI service could not complete this request."
                 )
 
             try:
@@ -220,8 +220,9 @@ async def generate_gemini_reply(
 
             if answer:
                 return answer
+
             raise GeminiServiceError(
-                "The AI service returned no text. Please try rephrasing your message."
+                "The AI service returned no text. Please try rephrasing."
             )
 
     raise GeminiServiceError("Gemini is temporarily busy. Please try again shortly.")
