@@ -1,0 +1,1 @@
+- [Python package setup](python-package-setup.md) — use the full Python tools module when the base interpreter blocks pip installs.

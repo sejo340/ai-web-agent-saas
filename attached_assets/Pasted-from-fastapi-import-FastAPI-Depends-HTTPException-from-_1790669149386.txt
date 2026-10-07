@@ -1,0 +1,52 @@
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import uuid
+from database import init_db, get_db
+from models import Client, Website
+app = FastAPI(title="AI Web Agent SaaS Backend", version="1.0")
+class ClientOnboardRequest(BaseModel):
+    name: str
+    email: str
+    website_url: str
+class ClientResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    api_key: str
+    website_url: str
+    bot_status: str
+    class Config:
+        from_attributes = True
+@app.on_event("startup")
+async def startup():
+    await init_db()
+    print("✅ Database initialized!")
+@app.get("/")
+def read_root():
+    return {"message": "AI Web Agent SaaS Backend is running! 🚀"}
+@app.post("/api/onboard", response_model=ClientResponse)
+async def onboard_client(request: ClientOnboardRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Client).where(Client.email == request.email))
+    existing_client = result.scalar_one_or_none()
+    if existing_client:
+        raise HTTPException(status_code=400, detail="Client with this email already exists.")
+    new_api_key = f"sk-saas-{uuid.uuid4().hex}"
+    new_client = Client(name=request.name, email=request.email, api_key=new_api_key)
+    db.add(new_client)
+    await db.flush()
+    new_website = Website(client_id=new_client.id, url=request.website_url, bot_status="ready")
+    db.add(new_website)
+    await db.commit()
+    await db.refresh(new_client)
+    await db.refresh(new_website)
+    return ClientResponse(
+        id=new_client.id, name=new_client.name, email=new_client.email,
+        api_key=new_client.api_key, website_url=new_website.url, bot_status=new_website.bot_status
+    )
+@app.get("/api/clients")
+async def get_clients(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Client))
+    clients = result.scalars().all()
+    return [{"id": c.id, "name": c.name, "email": c.email, "api_key": c.api_key} for c in clients]

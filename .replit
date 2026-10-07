@@ -1,0 +1,34 @@
+onBoot = "python -m playwright install chromium"
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["alsa-lib", "at-spi2-atk", "atk", "cairo", "gitFull", "glib", "gtk3", "libdrm", "libgbm", "libxcrypt", "libxkbcommon", "mesa", "nspr", "nss", "pango", "playwright-driver"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -m uvicorn main:app --host 0.0.0.0 --port 8080"
+waitForPort = 8080
+
+[[ports]]
+localPort = 8080
+externalPort = 80
