@@ -5,7 +5,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_ROOT = "   GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1"
+# CORRECT API URL (v1, not v1beta)
+GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1"
 
 
 class GeminiServiceError(Exception):
