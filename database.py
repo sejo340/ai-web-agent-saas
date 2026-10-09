@@ -12,7 +12,15 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+# Add pool_pre_ping=True to automatically reconnect if the database drops the connection
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,  # <-- THIS IS THE MAGIC FIX
+    pool_size=5,
+    max_overflow=10,
+)
+
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
