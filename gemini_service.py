@@ -19,14 +19,14 @@ async def generate_gemini_reply(
     if not api_key:
         raise GeminiServiceError("AI chat is not configured.")
 
-    # STRICT TIMEOUT: 15 seconds max
+    # STRICT TIMEOUT: 15 seconds max to prevent 2-4 minute waits
     timeout = httpx.Timeout(15.0, connect=5.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        # FORCE FASTEST MODEL - skip discovery entirely
-        model = "gemini-2.0-flash"
+        # USE THE CORRECT, FAST MODEL
+        model = "gemini-1.5-flash"
 
-        # Only send last 5 messages to save time
+        # Only send last 5 messages to save processing time
         contents = []
         if history:
             for msg in history[-5:]:
