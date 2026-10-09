@@ -8,7 +8,13 @@ from typing import List, Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import select
@@ -127,6 +133,13 @@ async def scrape_website(client_id: int, url: str):
 async def startup():
     await init_db()
     logger.info("Database initialized.")
+
+
+# --- NEW HEALTH CHECK ENDPOINT (Fixes the crashing/405 error) ---
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health_check():
+    """A lightweight endpoint that accepts HEAD requests to prevent crashes."""
+    return PlainTextResponse("ok", status_code=200)
 
 
 @app.get("/login", response_class=HTMLResponse)
