@@ -6,175 +6,40 @@
     <title>AI Web Assistant</title>
     <style>
         /* Base Styles */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: transparent;
-            overflow: hidden;
-        }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: transparent; overflow: hidden; }
 
         /* Floating Button */
-        #chat-toggle-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background-color: #22c55e;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100000;
-            transition: transform 0.2s ease, background-color 0.2s;
-        }
-
-        #chat-toggle-btn:hover {
-            transform: scale(1.1);
-            background-color: #16a34a;
-        }
-
-        #chat-toggle-btn svg {
-            width: 32px;
-            height: 32px;
-            fill: white;
-        }
+        #chat-toggle-btn { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background-color: #22c55e; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); display: flex; align-items: center; justify-content: center; z-index: 100000; transition: transform 0.2s ease, background-color 0.2s; }
+        #chat-toggle-btn:hover { transform: scale(1.1); background-color: #16a34a; }
+        #chat-toggle-btn svg { width: 32px; height: 32px; fill: white; }
 
         /* Chat Window */
-        #chat-window {
-            position: fixed;
-            bottom: 90px;
-            right: 20px;
-            width: 360px;
-            height: 500px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 99999;
-            border: 1px solid #e5e7eb;
-        }
-
-        #chat-window.active {
-            display: flex;
-        }
+        #chat-window { position: fixed; bottom: 90px; right: 20px; width: 360px; height: 500px; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); display: none; flex-direction: column; overflow: hidden; z-index: 99999; border: 1px solid #e5e7eb; }
+        #chat-window.active { display: flex; }
 
         /* Chat Header */
-        .chat-header {
-            background: #2563eb;
-            color: white;
-            padding: 16px;
-            font-weight: 600;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .chat-header { background: #2563eb; color: white; padding: 16px; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 10px; }
 
         /* Messages Area */
-        #messages-container {
-            flex: 1;
-            padding: 16px;
-            overflow-y: auto;
-            background: #f9fafb;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 10px 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-
-        .message.bot {
-            background: white;
-            color: #1f2937;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
-        .message.user {
-            background: #2563eb;
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }
+        #messages-container { flex: 1; padding: 16px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+        .message.bot { background: white; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .message.user { background: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
 
         /* Input Area */
-        .input-area {
-            padding: 12px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            gap: 8px;
-        }
-
-        #chat-input {
-            flex: 1;
-            padding: 10px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 20px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        #chat-input:focus {
-            border-color: #2563eb;
-        }
-
-        #send-btn {
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #send-btn:hover {
-            background: #1d4ed8;
-        }
+        .input-area { padding: 12px; background: white; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; }
+        #chat-input { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 20px; font-size: 14px; outline: none; }
+        #chat-input:focus { border-color: #2563eb; }
+        #send-btn { background: #2563eb; color: white; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        #send-btn:hover { background: #1d4ed8; }
+        #send-btn:disabled { background: #9ca3af; cursor: not-allowed; }
 
         /* Loading Dots */
-        .typing-indicator {
-            display: flex;
-            gap: 4px;
-            padding: 10px 14px;
-            background: white;
-            border-radius: 12px;
-            align-self: flex-start;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .typing-indicator span {
-            width: 6px;
-            height: 6px;
-            background: #9ca3af;
-            border-radius: 50%;
-            animation: bounce 1.4s infinite ease-in-out both;
-        }
+        .typing-indicator { display: flex; gap: 4px; padding: 10px 14px; background: white; border-radius: 12px; align-self: flex-start; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .typing-indicator span { width: 6px; height: 6px; background: #9ca3af; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
         .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-        }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
     </style>
 </head>
 <body>
@@ -189,11 +54,9 @@
     <!-- Chat Window -->
     <div id="chat-window">
         <div class="chat-header">
-            <span> AI Web Assistant</span>
+            <span>🤖 AI Web Assistant</span>
         </div>
-
         <div id="messages-container"></div>
-
         <div class="input-area">
             <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
             <button id="send-btn" aria-label="Send message">
@@ -220,7 +83,7 @@
         toggleBtn.addEventListener('click', () => {
             chatWindow.classList.toggle('active');
             if (chatWindow.classList.contains('active') && messagesContainer.children.length === 0) {
-                addMessage("Hello! 👋 How can I help you navigate this site today?", 'bot');
+                addMessage("Hello!  How can I help you navigate this site today?", 'bot');
             }
         });
 
@@ -258,7 +121,8 @@
             showTyping();
 
             try {
-                const backendUrl = window.location.origin; 
+                // HARDCODED URL TO ENSURE IT ALWAYS HITS YOUR RENDER SERVER
+                const backendUrl = "https://ai-web-agent-saas.onrender.com"; 
 
                 const response = await fetch(`${backendUrl}/api/chat`, {
                     method: 'POST',
@@ -282,6 +146,7 @@
             } catch (error) {
                 removeTyping();
                 addMessage("Connection error. Please try again.", 'bot');
+                console.error('Chat error:', error);
             } finally {
                 sendBtn.disabled = false;
                 chatInput.focus();
