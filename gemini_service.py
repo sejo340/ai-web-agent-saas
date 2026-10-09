@@ -5,7 +5,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# CORRECT API URL (v1, not v1beta)
+# STABLE API URL
 GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1"
 
 
@@ -24,8 +24,8 @@ async def generate_gemini_reply(
     timeout = httpx.Timeout(15.0, connect=5.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        # USE THE CORRECT, FAST MODEL
-        model = "gemini-1.5-flash"
+        # USE THE STABLE, FAST MODEL
+        model = "gemini-pro"
 
         # Only send last 5 messages to save processing time
         contents = []
