@@ -5,8 +5,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# STABLE API URL
-GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1"
+# USE v1beta FOR gemini-1.5-flash
+GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 
 
 class GeminiServiceError(Exception):
@@ -20,14 +20,14 @@ async def generate_gemini_reply(
     if not api_key:
         raise GeminiServiceError("AI chat is not configured.")
 
-    # STRICT TIMEOUT: 15 seconds max to prevent 2-4 minute waits
+    # STRICT TIMEOUT: 15 seconds max
     timeout = httpx.Timeout(15.0, connect=5.0)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        # USE THE STABLE, FAST MODEL
-        model = "gemini-pro"
+        # USE THE CORRECT MODEL FOR v1beta
+        model = "gemini-1.5-flash"
 
-        # Only send last 5 messages to save processing time
+        # Only send last 5 messages to save time
         contents = []
         if history:
             for msg in history[-5:]:
