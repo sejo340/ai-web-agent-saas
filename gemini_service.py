@@ -24,27 +24,34 @@ BUSINESS_INFO = (
     os.getenv("BUSINESS_INFO", "").strip()
     or """
 Business: Mawolangalan Bites, a bakery in Kenya.
-What we make: artisan cookies, custom cakes, and premium baked goods made with
-love and the finest ingredients.
+Website: https://mawolangalan-bites.vercel.app
+What we make: artisan cookies, custom cakes, and premium baked goods. All
+products are made with love and the finest ingredients in Kenya.
 Website sections: Home, Products, Custom Cakes, Order Now.
 
-MENU AND PRICES:
-[ADD YOUR PRODUCTS AND PRICES HERE, one per line, e.g. "Chocolate chip cookies - KES 100 each"]
+HOW TO ORDER:
+To add items to your cart, click the "Add to Cart" button on any product page.
+You can view your cart by clicking the cart icon in the top right corner of
+the website.
 
-CUSTOM CAKES:
-[ADD DETAILS: flavours, sizes, how far ahead to order, starting prices]
+CUSTOM CAKES AND SPECIAL REQUESTS:
+Contact us for custom cake orders and special requests on +254 784 437 428.
 
-ORDERING AND DELIVERY:
-[ADD DETAILS: how to order, delivery areas, payment methods, opening hours]
+PRICES AND MENU DETAILS:
+Product names and prices are listed on the Products page of the website.
+If you are asked for a price or item you are not sure about, tell the customer
+to check the Products page or call +254 784 437 428.
 
 CONTACT:
-[ADD PHONE / WhatsApp / email / location]
+Phone: +254 784 437 428
+Location: Kenya
 """
 )
 
 SYSTEM_INSTRUCTION = (
     "You are the friendly assistant for the Mawolangalan Bites website. "
     "Answer using ONLY the business information below. Keep answers short. "
+    "Write in plain text only: never use markdown, asterisks, or bold. "
     "If something is not covered, do not invent it: say you are not sure and "
     "suggest the customer use the Order Now button or the contact details.\n\n"
     f"BUSINESS INFORMATION:\n{BUSINESS_INFO}"
@@ -172,6 +179,9 @@ async def _call_model(
         ).strip()
     except (KeyError, IndexError, TypeError, ValueError):
         answer = ""
+
+    # The chat widget shows plain text, so strip any markdown bold markers.
+    answer = answer.replace("**", "").replace("__", "").strip()
 
     if not answer:
         raise GeminiServiceError("AI returned no text. Try rephrasing.")
