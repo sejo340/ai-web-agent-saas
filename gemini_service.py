@@ -8,15 +8,47 @@ logger = logging.getLogger(__name__)
 
 GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 
-# Google retires Gemini models often (1.5 and 2.5 are already gone), so this
-# service tries several models and remembers the first one that works.
-# Set GEMINI_MODEL in your environment to force a specific model first.
-# Flash-Lite is listed first because it is the fastest option for simple chat.
+# Google retires Gemini models often, so this service tries several models and
+# remembers the first one that works. Set GEMINI_MODEL to force one first.
 FALLBACK_MODELS = [
     "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
     "gemini-3-flash-preview",
 ]
+
+# ---------------------------------------------------------------------------
+# FILL THIS IN: what the assistant knows about your business.
+# (Or set it as the BUSINESS_INFO environment variable on Render.)
+# ---------------------------------------------------------------------------
+BUSINESS_INFO = (
+    os.getenv("BUSINESS_INFO", "").strip()
+    or """
+Business: Mawolangalan Bites, a bakery in Kenya.
+What we make: artisan cookies, custom cakes, and premium baked goods made with
+love and the finest ingredients.
+Website sections: Home, Products, Custom Cakes, Order Now.
+
+MENU AND PRICES:
+[ADD YOUR PRODUCTS AND PRICES HERE, one per line, e.g. "Chocolate chip cookies - KES 100 each"]
+
+CUSTOM CAKES:
+[ADD DETAILS: flavours, sizes, how far ahead to order, starting prices]
+
+ORDERING AND DELIVERY:
+[ADD DETAILS: how to order, delivery areas, payment methods, opening hours]
+
+CONTACT:
+[ADD PHONE / WhatsApp / email / location]
+"""
+)
+
+SYSTEM_INSTRUCTION = (
+    "You are the friendly assistant for the Mawolangalan Bites website. "
+    "Answer using ONLY the business information below. Keep answers short. "
+    "If something is not covered, do not invent it: say you are not sure and "
+    "suggest the customer use the Order Now button or the contact details.\n\n"
+    f"BUSINESS INFORMATION:\n{BUSINESS_INFO}"
+)
 
 _working_model: Optional[str] = None
 
@@ -25,8 +57,12 @@ class GeminiServiceError(Exception):
     """Raised when Gemini cannot provide a response."""
 
 
-class _ModelNotFound(Exception):
-    pass
+class _TryNextModel(Exception):
+    """This model is missing, overloaded, or too slow: try another one."""
+
+    def __init__(self, model: str, reason: str):
+        super().__init__(f"{model}: {reason}")
+        self.reason = reason
 
 
 def _candidate_models() -> List[str]:
@@ -37,7 +73,6 @@ def _candidate_models() -> List[str]:
     if env_model:
         models.append(env_model)
     models.extend(FALLBACK_MODELS)
-    # de-duplicate, keep order
     return list(dict.fromkeys(models))
 
 
@@ -70,7 +105,6 @@ async def _discover_models(client: httpx.AsyncClient, api_key: str) -> List[str]
                 )
             ):
                 found.append(name)
-        # newest-looking names first (e.g. 3.5 before 3.1)
         return sorted(found, reverse=True)
     except Exception as e:
         logger.error(f"Model discovery failed: {e}")
@@ -87,10 +121,16 @@ async def _call_model(
             headers={"x-goog-api-key": api_key},
             json=payload,
         )
-    except httpx.ReadTimeout:
-        raise GeminiServiceError("The AI is taking too long. Please try again.")
-    except httpx.ConnectTimeout:
-        raise GeminiServiceError("Cannot connect to AI service.")
+    except (
+        httpx.ReadTimeout,
+        httpx.ConnectTimeout,
+        httpx.WriteTimeout,
+        httpx.PoolTimeout,
+    ):
+        logger.warning(
+            f"Gemini {model} timed out after {time.perf_counter() - started:.1f}s"
+        )
+        raise _TryNextModel(model, "timeout")
     except Exception as e:
         logger.error(f"Network error: {e}")
         raise GeminiServiceError("Network error occurred.")
@@ -101,8 +141,9 @@ async def _call_model(
             f"Gemini API Error ({response.status_code}) on {model}: {error_msg}"
         )
 
-        if response.status_code == 404:
-            raise _ModelNotFound(model)
+        # Missing, overloaded or erroring model: move on to the next one.
+        if response.status_code in (404, 500, 503):
+            raise _TryNextModel(model, str(response.status_code))
         # If a model rejects the thinking setting, retry once without it.
         if (
             response.status_code == 400
@@ -147,7 +188,8 @@ async def generate_gemini_reply(
     if not api_key:
         raise GeminiServiceError("AI chat is not configured.")
 
-    timeout = httpx.Timeout(15.0, connect=5.0)
+    # Per-attempt limit. A slow model is abandoned quickly and the next one is tried.
+    timeout = httpx.Timeout(10.0, connect=5.0)
 
     # Only send last 5 messages to save time
     contents = []
@@ -160,16 +202,17 @@ async def generate_gemini_reply(
         f"{prompt}\n\nIMPORTANT: Respond entirely in {language}. Be brief and helpful."
     )
     contents.append({"role": "user", "parts": [{"text": final_prompt}]})
+
     payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
         "contents": contents,
         "generationConfig": {
-            # "minimal" = least thinking, fastest replies (supported by all models above)
             "thinkingConfig": {"thinkingLevel": "minimal"},
-            # Short answers finish sooner
             "maxOutputTokens": 400,
         },
     }
 
+    timed_out = False
     async with httpx.AsyncClient(timeout=timeout) as client:
         tried = set()
 
@@ -179,21 +222,25 @@ async def generate_gemini_reply(
                 answer = await _call_model(client, api_key, model, payload)
                 _working_model = model
                 return answer
-            except _ModelNotFound:
+            except _TryNextModel as e:
+                timed_out = timed_out or e.reason == "timeout"
                 continue
 
-        # Every hardcoded model is gone: ask Google what is available now.
-        for model in await _discover_models(client, api_key):
-            if model in tried:
-                continue
-            try:
-                answer = await _call_model(client, api_key, model, payload)
-                _working_model = model
-                logger.warning(f"Using auto-discovered model: {model}")
-                return answer
-            except _ModelNotFound:
-                continue
+        # Every listed model failed with "not found": ask Google what exists now.
+        if not timed_out:
+            for model in await _discover_models(client, api_key):
+                if model in tried:
+                    continue
+                try:
+                    answer = await _call_model(client, api_key, model, payload)
+                    _working_model = model
+                    logger.warning(f"Using auto-discovered model: {model}")
+                    return answer
+                except _TryNextModel:
+                    continue
 
+    if timed_out:
+        raise GeminiServiceError("The AI is taking too long. Please try again.")
     raise GeminiServiceError(
         "No available AI model found. Set GEMINI_MODEL to a current Gemini model."
     )
