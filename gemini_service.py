@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import List, Optional
 import httpx
 
@@ -10,9 +11,10 @@ GEMINI_API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 # Google retires Gemini models often (1.5 and 2.5 are already gone), so this
 # service tries several models and remembers the first one that works.
 # Set GEMINI_MODEL in your environment to force a specific model first.
+# Flash-Lite is listed first because it is the fastest option for simple chat.
 FALLBACK_MODELS = [
-    "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
     "gemini-3-flash-preview",
 ]
 
@@ -78,6 +80,7 @@ async def _discover_models(client: httpx.AsyncClient, api_key: str) -> List[str]
 async def _call_model(
     client: httpx.AsyncClient, api_key: str, model: str, payload: dict
 ) -> str:
+    started = time.perf_counter()
     try:
         response = await client.post(
             f"{GEMINI_API_ROOT}/models/{model}:generateContent",
@@ -100,6 +103,21 @@ async def _call_model(
 
         if response.status_code == 404:
             raise _ModelNotFound(model)
+        # If a model rejects the thinking setting, retry once without it.
+        if (
+            response.status_code == 400
+            and "thinking" in error_msg.lower()
+            and "thinkingConfig" in payload.get("generationConfig", {})
+        ):
+            lean = {
+                **payload,
+                "generationConfig": {
+                    k: v
+                    for k, v in payload["generationConfig"].items()
+                    if k != "thinkingConfig"
+                },
+            }
+            return await _call_model(client, api_key, model, lean)
         if response.status_code == 429:
             raise GeminiServiceError("AI rate limit reached. Try again later.")
         if response.status_code in (401, 403) or "API key" in error_msg:
@@ -116,6 +134,7 @@ async def _call_model(
 
     if not answer:
         raise GeminiServiceError("AI returned no text. Try rephrasing.")
+    logger.info(f"Gemini {model} replied in {time.perf_counter() - started:.1f}s")
     return answer
 
 
@@ -141,7 +160,15 @@ async def generate_gemini_reply(
         f"{prompt}\n\nIMPORTANT: Respond entirely in {language}. Be brief and helpful."
     )
     contents.append({"role": "user", "parts": [{"text": final_prompt}]})
-    payload = {"contents": contents}
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            # "minimal" = least thinking, fastest replies (supported by all models above)
+            "thinkingConfig": {"thinkingLevel": "minimal"},
+            # Short answers finish sooner
+            "maxOutputTokens": 400,
+        },
+    }
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         tried = set()
