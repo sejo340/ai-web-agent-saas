@@ -50,7 +50,7 @@ async def add_embedding_headers(request: Request, call_next):
 
 PROJECT_DIR = Path(__file__).parent
 
-# SECURE ENVIRONMENT VARIABLES (No hardcoded secrets)
+# SECURE ENVIRONMENT VARIABLES
 SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-secret-change-in-prod")
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
@@ -88,37 +88,71 @@ async def require_admin(request: Request) -> bool:
     return True
 
 
+# --- UPGRADED SCRAPER ---
 async def scrape_website(client_id: int, url: str):
     logger.info(f"Starting background scrape for client {client_id}: {url}")
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+        # 1. Use a "Real Browser" User-Agent so websites don't block us
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
+
+        async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        title = soup.title.string if soup.title else "No title"
+        # 2. Get Title
+        title = (
+            soup.title.string.strip()
+            if soup.title and soup.title.string
+            else "No title"
+        )
+
+        # 3. Get Meta Description (Almost all modern sites have this)
+        meta_desc = soup.find("meta", attrs={"name": "description"})
+        description = (
+            meta_desc["content"].strip()
+            if meta_desc and meta_desc.get("content")
+            else ""
+        )
+
+        # 4. Get Headings
         headings = [
             h.get_text(strip=True)
             for h in soup.find_all(["h1", "h2", "h3"])
             if h.get_text(strip=True)
         ]
+
+        # 5. Get Paragraphs (Limit to top 15 to save space)
         paragraphs = [
             p.get_text(strip=True) for p in soup.find_all("p") if p.get_text(strip=True)
-        ][:10]
+        ][:15]
+
+        # 6. Get Links
         links = [
             {"text": a.get_text(strip=True), "href": a.get("href")}
             for a in soup.find_all("a", href=True)
             if a.get_text(strip=True)
-        ][:15]
+        ][:20]
+
+        # 7. Check for Next.js/React hidden data
+        framework_data = "Standard HTML"
+        next_script = soup.find("script", id="__NEXT_DATA__")
+        if next_script and next_script.string:
+            framework_data = "Next.js/React data detected"
 
         site_map = {
             "url": url,
             "title": title,
+            "meta_description": description,
             "headings": headings,
             "summary_paragraphs": paragraphs,
             "navigation_links": links,
+            "framework_detected": framework_data,
         }
 
         map_path = PROJECT_DIR / f"client_{client_id}_map.json"
@@ -135,7 +169,7 @@ async def startup():
     logger.info("Database initialized.")
 
 
-# --- NEW HEALTH CHECK ENDPOINT (Fixes the crashing/405 error) ---
+# --- HEALTH CHECK ENDPOINT ---
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     """A lightweight endpoint that accepts HEAD requests to prevent crashes."""
