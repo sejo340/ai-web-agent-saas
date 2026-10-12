@@ -3,4 +3,9 @@ __pycache__/
 *.pyc
 *.db
 *.sqlite
-client_*_map.json
+client_*_map.jsonattached_assets/
+.agents/
+.env
+__pycache__/
+*.pyc
+*.db

@@ -1,0 +1,33 @@
+{
+  "url": "https://mawolangalan-bites.vercel.app",
+  "title": "Mawolangalan Bites - Artisan Cookies & Custom Cakes",
+  "headings": [
+    "MAWOLANGALAN BITES",
+    "Crafting Delicious Memories One Bite at a Time",
+    "Artisan cookies, custom cakes, and premium baked goods made with love and the finest ingredients in Kenya.",
+    "Order Now",
+    "Custom Cakes",
+    "500+ Happy Customers",
+    "50+ Products",
+    "100% Fresh Daily"
+  ],
+  "summary_paragraphs": [
+    "Mawolangalan Bites specializes in artisan cookies, custom cakes, and premium baked goods.",
+    "All products are made with love and the finest ingredients in Kenya.",
+    "We offer custom cakes for special occasions and a variety of baked products.",
+    "To add items to your cart, click the 'Add to Cart' button on any product page. You can view your cart by clicking the cart icon in the top right corner. From there, you can review your items and proceed to checkout.",
+    "You can also order directly through our website using the Order Now button.",
+    "Contact us for custom cake orders and special requests at +254 784 437 428.",
+    "We have over 50 products and serve 500+ happy customers with 100% fresh daily products."
+  ],
+  "navigation_links": [
+    {"text": "Home", "href": "/"},
+    {"text": "Products", "href": "/products"},
+    {"text": "Custom Cakes", "href": "/custom-cakes"},
+    {"text": "Contact", "href": "/contact"}
+  ],
+  "contact_info": {
+    "phone": "+254 784 437 428",
+    "location": "Kenya"
+  }
+}

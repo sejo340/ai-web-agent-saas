@@ -1,0 +1,94 @@
+{
+  "url": "https://www.python.org/",
+  "title": "Welcome to Python.org",
+  "headings": [
+    "Intuitive Interpretation",
+    "Compound Data Types",
+    "All the Flow You\u2019d Expect",
+    "Functions Defined",
+    "Quick & Easy to Learn",
+    "Get Started",
+    "Download",
+    "Docs",
+    "Jobs",
+    "Latest News",
+    "Upcoming Events",
+    "Success Stories",
+    "Use Python for\u2026",
+    ">>>Python Software Foundation"
+  ],
+  "summary_paragraphs": [
+    "Notice:This page displays a fallback because interactive scripts did not run. Possible causes include disabled JavaScript or failure to load scripts or stylesheets.",
+    "Calculations are simple with Python, and expression syntax is straightforward: the operators+,-,*and/work as expected; parentheses()can be used for grouping.More about simple math functions in Python\u00a03.",
+    "Lists (known as arrays in other languages) are one of the compound data types that Python understands. Lists can be indexed, sliced and manipulated with other built-in functions.More about lists in Python\u00a03",
+    "Python knows the usual control flow statements that other languages speak \u2014if,for,whileandrange\u2014 with some of its own twists, of course.More control flow tools in Python\u00a03",
+    "The core of extensible programming is defining functions. Python allows mandatory and optional arguments, keyword arguments, and even arbitrary argument lists.More about defining functions in Python\u00a03",
+    "Experienced programmers in any other language can pick up Python very quickly, and beginners find the clean syntax and indentation structure easy to learn.Whet your appetitewith our Python\u00a03 overview.",
+    "Python is a programming language that lets you work quicklyand integrate systems more effectively.Learn More",
+    "Whether you're new to programming or an experienced developer, it's easy to learn and use Python.",
+    "Start with our Beginner\u2019s Guide",
+    "Python source code and installers are available for download for all versions!"
+  ],
+  "navigation_links": [
+    {
+      "text": "Skip to content",
+      "href": "#content"
+    },
+    {
+      "text": "\u25bcClose",
+      "href": "#python-network"
+    },
+    {
+      "text": "Python",
+      "href": "/"
+    },
+    {
+      "text": "PSF",
+      "href": "https://www.python.org/psf/"
+    },
+    {
+      "text": "Docs",
+      "href": "https://docs.python.org"
+    },
+    {
+      "text": "PyPI",
+      "href": "https://pypi.org/"
+    },
+    {
+      "text": "Jobs",
+      "href": "/jobs/"
+    },
+    {
+      "text": "Community",
+      "href": "/community/"
+    },
+    {
+      "text": "\u25b2The Python Network",
+      "href": "#top"
+    },
+    {
+      "text": "Donate",
+      "href": "https://donate.python.org/"
+    },
+    {
+      "text": "\u2261Menu",
+      "href": "#site-map"
+    },
+    {
+      "text": "AA",
+      "href": "#"
+    },
+    {
+      "text": "Smaller",
+      "href": "javascript:;"
+    },
+    {
+      "text": "Larger",
+      "href": "javascript:;"
+    },
+    {
+      "text": "Reset",
+      "href": "javascript:;"
+    }
+  ]
+}
